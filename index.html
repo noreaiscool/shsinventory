@@ -575,14 +575,14 @@ CREATE POLICY "public_all" ON stock_log FOR ALL USING (true) WITH CHECK (true);<
 let sb = null, products = [], logs = [], delId = null, stockType = 'add';
 const CFG_URL = 'sb_url', CFG_KEY = 'sb_key';
 
+const SUPABASE_URL = 'https://hcsqjqbocbmwbbffqxdh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjc3FqcWJvY2Jtd2JiZmZxeGRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxMDIyNTEsImV4cCI6MjA4ODY3ODI1MX0.qDdITjQiwkJfbbSgS9nJM8LwN2mQOwLR-NuONvd9-r4';
+
 window.onload = async () => {
-  const url = localStorage.getItem(CFG_URL);
-  const key = localStorage.getItem(CFG_KEY);
-  if (url && key) {
-    document.getElementById('cfg-url').value = url;
-    document.getElementById('cfg-key').value = key;
-    await connect(url, key);
-  } else { renderProducts(); renderLog(); }
+  document.getElementById('cfg-url').value = SUPABASE_URL;
+  document.getElementById('cfg-key').value = SUPABASE_KEY;
+  document.getElementById('setup-banner').style.display = 'none';
+  await connect(SUPABASE_URL, SUPABASE_KEY);
 };
 
 async function connect(url, key) {
