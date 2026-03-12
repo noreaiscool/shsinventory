@@ -704,12 +704,12 @@ async function saveProduct() {
     toast('✅ Product added!','ok');
   } else {
     if(sb){
-      const {error}=await sb.from('products').update({name,notes,updated_at:now}).eq('id',id);
+      const {error}=await sb.from('products').update({name,qty,notes,updated_at:now}).eq('id',id);
       if(error){toast('Error updating.','err');return;}
       await loadAll();
     } else {
       const p=products.find(x=>x.id===id);
-      if(p){p.name=name;p.notes=notes;p.updated_at=now;}
+      if(p){p.name=name;p.qty=qty;p.notes=notes;p.updated_at=now;}
       renderProducts();updateStats();
     }
     toast('✏️ Product updated!','ok');
