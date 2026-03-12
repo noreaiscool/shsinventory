@@ -307,6 +307,32 @@ tbody td { padding: 14px 20px; font-size: 14px; vertical-align: middle; }
 }
 .copy-btn:hover { background: var(--accent-lt); color: var(--accent); border-color: var(--accent); }
 
+
+/* REPORT MODAL */
+.report-modal { max-width: 780px; max-height: 90vh; overflow-y: auto; }
+.report-header { margin-bottom: 22px; }
+.report-header h3 { font-family: "Lora", serif; font-size: 18px; color: var(--text); margin-bottom: 4px; }
+.report-header p { font-size: 12.5px; color: var(--muted); }
+.report-summary {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 22px;
+}
+.report-stat {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 14px 16px; text-align: center;
+}
+.report-stat .rs-val { font-family: "Lora", serif; font-size: 28px; font-weight: 600; color: var(--text); }
+.report-stat .rs-val.amber { color: var(--amber); }
+.report-stat .rs-val.red { color: var(--red); }
+.report-stat .rs-val.green { color: var(--green); }
+.report-stat .rs-lbl { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+.report-table-wrap { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.report-table-wrap table { width: 100%; border-collapse: collapse; }
+.report-table-wrap thead tr { background: var(--surface2); }
+.report-table-wrap thead th { padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); text-align: left; }
+.report-table-wrap tbody tr { border-bottom: 1px solid var(--border); }
+.report-table-wrap tbody tr:last-child { border-bottom: none; }
+.report-table-wrap tbody td { padding: 11px 14px; font-size: 13.5px; }
+
 /* TOAST */
 #toast {
   position: fixed; bottom: 26px; right: 26px;
@@ -393,7 +419,7 @@ tbody td { padding: 14px 20px; font-size: 14px; vertical-align: middle; }
 
   <div class="section-head">
     <h2 class="section-title">Stock History</h2>
-    <button class="btn btn-outline" onclick="generateReport()">📊 Export Report</button>
+    <button class="btn btn-outline" onclick="openReport()">📊 View Report</button>
   </div>
   <div class="log-card" id="log-body">
     <div class="empty"><div class="empty-icon">📋</div><p>No movements yet</p></div>
@@ -484,6 +510,47 @@ tbody td { padding: 14px 20px; font-size: 14px; vertical-align: middle; }
     <div class="modal-foot">
       <button class="btn btn-outline" onclick="modalClose('m-del')">Cancel</button>
       <button class="btn btn-danger" onclick="doDelete()">Yes, Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- REPORT MODAL -->
+<div class="overlay" id="m-report">
+  <div class="modal report-modal">
+    <div class="modal-head">
+      <h2>📊 Inventory Report</h2>
+      <button class="modal-x" onclick="modalClose('m-report')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="report-header">
+        <h3>SalonStock — Inventory Summary</h3>
+        <p id="report-date"></p>
+      </div>
+      <div class="report-summary">
+        <div class="report-stat"><div class="rs-val" id="rp-total">0</div><div class="rs-lbl">Total Products</div></div>
+        <div class="report-stat"><div class="rs-val green" id="rp-units">0</div><div class="rs-lbl">Total Units</div></div>
+        <div class="report-stat"><div class="rs-val amber" id="rp-low">0</div><div class="rs-lbl">Low Stock</div></div>
+        <div class="report-stat"><div class="rs-val red" id="rp-out">0</div><div class="rs-lbl">Out of Stock</div></div>
+      </div>
+      <div class="report-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Product</th>
+              <th>Notes</th>
+              <th>Qty</th>
+              <th>Status</th>
+              <th>Last Updated</th>
+            </tr>
+          </thead>
+          <tbody id="report-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="modalClose('m-report')">Close</button>
+      <button class="btn btn-primary" onclick="generateReport()">⬇️ Export as Excel</button>
     </div>
   </div>
 </div>
@@ -811,6 +878,34 @@ function copyCode(id,btn){
   navigator.clipboard.writeText(text).then(()=>{btn.textContent='Copied!';setTimeout(()=>btn.textContent='Copy',2000);});
 }
 
+
+function openReport() {
+  if (!products.length) { toast('No products to preview.', 'err'); return; }
+  const now = new Date();
+  document.getElementById('report-date').textContent = 'Generated: ' + now.toLocaleDateString('en-PH', {year:'numeric',month:'long',day:'numeric'}) + ' ' + now.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('rp-total').textContent = products.length;
+  document.getElementById('rp-units').textContent = products.reduce((s,p)=>s+p.qty,0);
+  document.getElementById('rp-low').textContent = products.filter(p=>p.qty>0&&p.qty<5).length;
+  document.getElementById('rp-out').textContent = products.filter(p=>p.qty===0).length;
+  const tbody = document.getElementById('report-body');
+  tbody.innerHTML = products.map((p,i) => {
+    const status = p.qty===0
+      ? '<span class="badge badge-out">⛔ Out of Stock</span>'
+      : p.qty<5
+      ? '<span class="badge badge-low">⚠️ Low</span>'
+      : '<span class="badge badge-ok">✅ OK</span>';
+    const date = p.updated_at ? new Date(p.updated_at).toLocaleString('en-PH',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+    return `<tr>
+      <td style="color:var(--muted);font-size:12px">${i+1}</td>
+      <td><strong>${esc(p.name)}</strong></td>
+      <td style="color:var(--muted);font-size:12.5px">${esc(p.notes||'—')}</td>
+      <td><strong>${p.qty}</strong></td>
+      <td>${status}</td>
+      <td style="font-size:12px;color:var(--muted)">${date}</td>
+    </tr>`;
+  }).join('');
+  modalOpen('m-report');
+}
 
 function generateReport() {
   if (!products.length) { toast('No products to export.', 'err'); return; }
