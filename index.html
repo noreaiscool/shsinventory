@@ -6,6 +6,7 @@
 <title>SalonStock — Inventory</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Lora:wght@500;600&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root {
   --bg:        #F7F8FC;
@@ -392,6 +393,7 @@ tbody td { padding: 14px 20px; font-size: 14px; vertical-align: middle; }
 
   <div class="section-head">
     <h2 class="section-title">Stock History</h2>
+    <button class="btn btn-outline" onclick="generateReport()">📊 Export Report</button>
   </div>
   <div class="log-card" id="log-body">
     <div class="empty"><div class="empty-icon">📋</div><p>No movements yet</p></div>
@@ -403,7 +405,7 @@ tbody td { padding: 14px 20px; font-size: 14px; vertical-align: middle; }
   <div class="modal">
     <div class="modal-head">
       <h2 id="m-product-title">Add Product</h2>
-      <button class="modal-x" onclick="close('m-product')">✕</button>
+      <button class="modal-x" onclick="modalClose('m-product')">✕</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="edit-id"/>
@@ -425,7 +427,7 @@ tbody td { padding: 14px 20px; font-size: 14px; vertical-align: middle; }
       </div>
     </div>
     <div class="modal-foot">
-      <button class="btn btn-outline" onclick="close('m-product')">Cancel</button>
+      <button class="btn btn-outline" onclick="modalClose('m-product')">Cancel</button>
       <button class="btn btn-primary" onclick="saveProduct()">Save Product</button>
     </div>
   </div>
@@ -436,7 +438,7 @@ tbody td { padding: 14px 20px; font-size: 14px; vertical-align: middle; }
   <div class="modal">
     <div class="modal-head">
       <h2 id="m-stock-title">Update Stock</h2>
-      <button class="modal-x" onclick="close('m-stock')">✕</button>
+      <button class="modal-x" onclick="modalClose('m-stock')">✕</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="s-id"/>
@@ -460,7 +462,7 @@ tbody td { padding: 14px 20px; font-size: 14px; vertical-align: middle; }
       <div class="warn-box" id="s-warn"></div>
     </div>
     <div class="modal-foot">
-      <button class="btn btn-outline" onclick="close('m-stock')">Cancel</button>
+      <button class="btn btn-outline" onclick="modalClose('m-stock')">Cancel</button>
       <button class="btn btn-primary" onclick="doStock()">Confirm</button>
     </div>
   </div>
@@ -471,7 +473,7 @@ tbody td { padding: 14px 20px; font-size: 14px; vertical-align: middle; }
   <div class="modal">
     <div class="modal-head">
       <h2 style="color:var(--red)">Delete Product</h2>
-      <button class="modal-x" onclick="close('m-del')">✕</button>
+      <button class="modal-x" onclick="modalClose('m-del')">✕</button>
     </div>
     <div class="modal-body">
       <p style="font-size:14.5px;line-height:1.75;color:var(--text-dim)">
@@ -480,7 +482,7 @@ tbody td { padding: 14px 20px; font-size: 14px; vertical-align: middle; }
       </p>
     </div>
     <div class="modal-foot">
-      <button class="btn btn-outline" onclick="close('m-del')">Cancel</button>
+      <button class="btn btn-outline" onclick="modalClose('m-del')">Cancel</button>
       <button class="btn btn-danger" onclick="doDelete()">Yes, Delete</button>
     </div>
   </div>
@@ -491,7 +493,7 @@ tbody td { padding: 14px 20px; font-size: 14px; vertical-align: middle; }
   <div class="modal setup-modal">
     <div class="modal-head">
       <h2>⚡ Connect Supabase</h2>
-      <button class="modal-x" onclick="close('m-setup')">✕</button>
+      <button class="modal-x" onclick="modalClose('m-setup')">✕</button>
     </div>
     <div class="modal-body">
       <p style="font-size:13px;color:var(--text-dim);margin-bottom:22px;line-height:1.7">
@@ -564,7 +566,7 @@ CREATE POLICY "public_all" ON stock_log FOR ALL USING (true) WITH CHECK (true);<
       </div>
     </div>
     <div class="modal-foot">
-      <button class="btn btn-outline" onclick="close('m-setup')">Close</button>
+      <button class="btn btn-outline" onclick="modalClose('m-setup')">Close</button>
     </div>
   </div>
 </div>
@@ -668,7 +670,7 @@ function openAdd() {
   document.getElementById('f-name').value='';
   document.getElementById('f-qty').value=0;
   document.getElementById('f-notes').value='';
-  open('m-product');
+  modalOpen('m-product');
 }
 
 function openEdit(id) {
@@ -678,7 +680,7 @@ function openEdit(id) {
   document.getElementById('f-name').value=p.name;
   document.getElementById('f-qty').value=p.qty;
   document.getElementById('f-notes').value=p.notes||'';
-  open('m-product');
+  modalOpen('m-product');
 }
 
 async function saveProduct() {
@@ -712,7 +714,7 @@ async function saveProduct() {
     }
     toast('✏️ Product updated!','ok');
   }
-  close('m-product');
+  modalClose('m-product');
 }
 
 function openStock(id) {
@@ -723,7 +725,7 @@ function openStock(id) {
   document.getElementById('s-qty').value=1;
   document.getElementById('s-reason').value='';
   document.getElementById('s-warn').style.display='none';
-  setType('add'); open('m-stock');
+  setType('add'); modalOpen('m-stock');
 }
 
 function setType(t) {
@@ -754,7 +756,7 @@ async function doStock() {
     logs.unshift({id:crypto.randomUUID(),product_name:p.name,type:stockType==='add'?'ADD':'REMOVE',qty,reason,stock_after:newQty,created_at:now});
     renderProducts();renderLog();updateStats();
   }
-  close('m-stock');
+  modalClose('m-stock');
   toast(stockType==='add'?`➕ Added ${qty} to ${p.name}`:`➖ Took ${qty} from ${p.name}`,'ok');
 }
 
@@ -762,7 +764,7 @@ function openDel(id) {
   delId=id;
   const p=products.find(x=>x.id===id);
   document.getElementById('del-name').textContent=p?.name||'';
-  open('m-del');
+  modalOpen('m-del');
 }
 
 async function doDelete() {
@@ -777,10 +779,10 @@ async function doDelete() {
     renderProducts();updateStats();
   }
   toast(`🗑️ ${p?.name} deleted.`);
-  delId=null; close('m-del');
+  delId=null; modalClose('m-del');
 }
 
-function openSetup(){open('m-setup');}
+function openSetup(){modalOpen('m-setup');}
 
 async function saveConfig(){
   const url=document.getElementById('cfg-url').value.trim();
@@ -788,12 +790,12 @@ async function saveConfig(){
   if(!url||!key){toast('Please fill in both fields.','err');return;}
   if(!url.includes('supabase.co')){toast("That doesn't look like a Supabase URL.",'err');return;}
   localStorage.setItem(CFG_URL,url);localStorage.setItem(CFG_KEY,key);
-  close('m-setup'); await connect(url,key);
+  modalClose('m-setup'); await connect(url,key);
 }
 
 function adj(id,d){const el=document.getElementById(id);el.value=Math.max(0,(parseInt(el.value)||0)+d);}
-function open(id){document.getElementById(id).classList.add('open');}
-function close(id){document.getElementById(id).classList.remove('open');}
+function modalOpen(id){document.getElementById(id).classList.add('open');}
+function modalClose(id){document.getElementById(id).classList.remove('open');}
 
 let _tt;
 function toast(msg,type=''){
@@ -807,6 +809,61 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 function copyCode(id,btn){
   const text=document.getElementById(id).innerText.replace('Copy','').trim();
   navigator.clipboard.writeText(text).then(()=>{btn.textContent='Copied!';setTimeout(()=>btn.textContent='Copy',2000);});
+}
+
+
+function generateReport() {
+  if (!products.length) { toast('No products to export.', 'err'); return; }
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-PH', {year:'numeric',month:'long',day:'numeric'});
+  const timeStr = now.toLocaleTimeString('en-PH', {hour:'2-digit',minute:'2-digit'});
+
+  // Sheet 1: Inventory Summary
+  const summaryData = [
+    ['SalonStock — Inventory Report'],
+    [`Generated: ${dateStr} ${timeStr}`],
+    [],
+    ['#', 'Product Name', 'Notes', 'Quantity', 'Status', 'Last Updated'],
+    ...products.map((p, i) => {
+      const status = p.qty === 0 ? 'Out of Stock' : p.qty < 5 ? 'Low Stock' : 'OK';
+      const date = p.updated_at ? new Date(p.updated_at).toLocaleString('en-PH') : '—';
+      return [i+1, p.name, p.notes || '', p.qty, status, date];
+    }),
+    [],
+    ['SUMMARY'],
+    ['Total Products', products.length],
+    ['Total Units', products.reduce((s,p)=>s+p.qty,0)],
+    ['Out of Stock', products.filter(p=>p.qty===0).length],
+    ['Low Stock (< 5)', products.filter(p=>p.qty>0&&p.qty<5).length],
+    ['OK', products.filter(p=>p.qty>=5).length],
+  ];
+
+  // Sheet 2: Stock History
+  const historyData = [
+    ['SalonStock — Stock Movement History'],
+    [`Generated: ${dateStr} ${timeStr}`],
+    [],
+    ['Date', 'Product', 'Type', 'Quantity', 'Reason', 'Stock After'],
+    ...logs.map(l => {
+      const date = new Date(l.created_at).toLocaleString('en-PH');
+      return [date, l.product_name, l.type, l.qty, l.reason || '', l.stock_after];
+    })
+  ];
+
+  const wb = XLSX.utils.book_new();
+
+  const ws1 = XLSX.utils.aoa_to_sheet(summaryData);
+  ws1['!cols'] = [{wch:4},{wch:30},{wch:20},{wch:10},{wch:14},{wch:22}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Inventory');
+
+  const ws2 = XLSX.utils.aoa_to_sheet(historyData);
+  ws2['!cols'] = [{wch:22},{wch:30},{wch:10},{wch:10},{wch:25},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Stock History');
+
+  const filename = `SalonStock_Report_${now.toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb, filename);
+  toast('📊 Report exported!', 'ok');
 }
 
 document.querySelectorAll('.overlay').forEach(el=>{
