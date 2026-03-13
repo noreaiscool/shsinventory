@@ -333,6 +333,10 @@ tbody td { padding: 14px 20px; font-size: 14px; vertical-align: middle; }
 .report-table-wrap tbody tr:last-child { border-bottom: none; }
 .report-table-wrap tbody td { padding: 11px 14px; font-size: 13.5px; }
 
+/* LOW STOCK MODAL */
+.lowstock-modal { max-width: 620px; max-height: 88vh; overflow-y: auto; }
+.lowstock-empty { padding: 40px; text-align: center; color: var(--muted); font-size: 14px; }
+
 /* TOAST */
 #toast {
   position: fixed; bottom: 26px; right: 26px;
@@ -387,7 +391,7 @@ tbody td { padding: 14px 20px; font-size: 14px; vertical-align: middle; }
       <div class="stat-value" id="s-total">0</div>
       <div class="stat-emoji">📦</div>
     </div>
-    <div class="stat">
+    <div class="stat" onclick="openLowStock()" style="cursor:pointer" title="Click to view low stock items">
       <div class="stat-stripe amber"></div>
       <div class="stat-label">Low Stock Items</div>
       <div class="stat-value amber" id="s-low">0</div>
@@ -510,6 +514,21 @@ tbody td { padding: 14px 20px; font-size: 14px; vertical-align: middle; }
     <div class="modal-foot">
       <button class="btn btn-outline" onclick="modalClose('m-del')">Cancel</button>
       <button class="btn btn-danger" onclick="doDelete()">Yes, Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOW STOCK MODAL -->
+<div class="overlay" id="m-lowstock">
+  <div class="modal lowstock-modal">
+    <div class="modal-head">
+      <h2>⚠️ Low Stock Items</h2>
+      <button class="modal-x" onclick="modalClose('m-lowstock')">✕</button>
+    </div>
+    <div class="modal-body" id="lowstock-body">
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="modalClose('m-lowstock')">Close</button>
     </div>
   </div>
 </div>
@@ -690,7 +709,7 @@ function renderProducts() {
   }
   tb.innerHTML = list.map(p => {
     const badge = p.qty===0 ? `<span class="badge badge-out">⛔ Out of stock</span>`
-      : p.qty<5 ? `<span class="badge badge-low">⚠️ ${p.qty} left</span>`
+      : p.qty<10 ? `<span class="badge badge-low">⚠️ ${p.qty} left</span>`
       : `<span class="badge badge-ok">✅ ${p.qty}</span>`;
     const date = p.updated_at ? new Date(p.updated_at).toLocaleString('en-PH',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
     return `<tr>
@@ -728,7 +747,7 @@ function renderLog() {
 
 function updateStats() {
   document.getElementById('s-total').textContent = products.length;
-  document.getElementById('s-low').textContent = products.filter(p=>p.qty<5).length;
+  document.getElementById('s-low').textContent = products.filter(p=>p.qty>0&&p.qty<10).length;
 }
 
 function openAdd() {
@@ -879,19 +898,62 @@ function copyCode(id,btn){
 }
 
 
+function openLowStock() {
+  const lowItems = products.filter(p => p.qty > 0 && p.qty < 10);
+  const outItems = products.filter(p => p.qty === 0);
+  const allItems = [...outItems, ...lowItems];
+  const body = document.getElementById('lowstock-body');
+  if (!allItems.length) {
+    body.innerHTML = '<div class="lowstock-empty"><div style="font-size:40px;margin-bottom:12px">🎉</div><p>All products are well stocked!</p></div>';
+  } else {
+    body.innerHTML = `
+      <p style="font-size:13px;color:var(--text-dim);margin-bottom:16px">
+        ${outItems.length} out of stock · ${lowItems.length} low stock (below 10 units)
+      </p>
+      <div class="report-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Notes</th>
+              <th>Qty</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${allItems.map(p => {
+              const status = p.qty === 0
+                ? '<span class="badge badge-out">⛔ Out of Stock</span>'
+                : '<span class="badge badge-low">⚠️ Low Stock</span>';
+              return `<tr>
+                <td><strong>${esc(p.name)}</strong></td>
+                <td style="font-size:12.5px;color:var(--muted)">${esc(p.notes||'—')}</td>
+                <td><strong>${p.qty}</strong></td>
+                <td>${status}</td>
+                <td><button class="btn btn-primary btn-sm" onclick="modalClose('m-lowstock');openStock('${p.id}')">+ Restock</button></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+  modalOpen('m-lowstock');
+}
+
 function openReport() {
   if (!products.length) { toast('No products to preview.', 'err'); return; }
   const now = new Date();
   document.getElementById('report-date').textContent = 'Generated: ' + now.toLocaleDateString('en-PH', {year:'numeric',month:'long',day:'numeric'}) + ' ' + now.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'});
   document.getElementById('rp-total').textContent = products.length;
   document.getElementById('rp-units').textContent = products.reduce((s,p)=>s+p.qty,0);
-  document.getElementById('rp-low').textContent = products.filter(p=>p.qty>0&&p.qty<5).length;
+  document.getElementById('rp-low').textContent = products.filter(p=>p.qty>0&&p.qty<10).length;
   document.getElementById('rp-out').textContent = products.filter(p=>p.qty===0).length;
   const tbody = document.getElementById('report-body');
   tbody.innerHTML = products.map((p,i) => {
     const status = p.qty===0
       ? '<span class="badge badge-out">⛔ Out of Stock</span>'
-      : p.qty<5
+      : p.qty<10
       ? '<span class="badge badge-low">⚠️ Low</span>'
       : '<span class="badge badge-ok">✅ OK</span>';
     const date = p.updated_at ? new Date(p.updated_at).toLocaleString('en-PH',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
@@ -921,7 +983,7 @@ function generateReport() {
     [],
     ['#', 'Product Name', 'Notes', 'Quantity', 'Status', 'Last Updated'],
     ...products.map((p, i) => {
-      const status = p.qty === 0 ? 'Out of Stock' : p.qty < 5 ? 'Low Stock' : 'OK';
+      const status = p.qty === 0 ? 'Out of Stock' : p.qty < 10 ? 'Low Stock' : 'OK';
       const date = p.updated_at ? new Date(p.updated_at).toLocaleString('en-PH') : '—';
       return [i+1, p.name, p.notes || '', p.qty, status, date];
     }),
